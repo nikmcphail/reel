@@ -1,0 +1,12 @@
+[package]
+name = "reel"
+description = "Get information about movies and series."
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = {version = "*", features = ["derive"]}
+reqwest = {version = "*", features = ["blocking", "json"]}
+serde_json = {version = "*"}
+colored = {version = "*"}
+
