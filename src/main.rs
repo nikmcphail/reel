@@ -66,21 +66,41 @@ struct Reel {
     poster: bool,
 }
 
-/// Fetch information from OMDb.
+use reqwest::Client;
+use serde_json::Value;
+/// Fetches film or series information from the OMDb API asynchronously.
 ///
-/// * `title` - Title of film/series.
-/// * `year` - Release year of title. (Optional)
-fn fetch_movie(title: &str, year: Option<u16>) -> Value {
+/// # Arguments
+///
+/// * `client` - A reference to a `reqwest::Client` to reuse connections efficiently.
+/// * `title` - The title of the movie or series to fetch.
+/// * `year` - Optional release year to narrow the search.
+async fn fetch_movie_async(client: &Client, title: &str, year: Option<u16>) -> Result<Value, String> {
     let formatted = title.replace(' ', "+");
     let mut url = format!("{}{}&t={}", API_URL, DEFAULT_KEY, formatted);
 
     if let Some(y) = year {
         url.push_str(&format!("&y={}", y));
     }
-    reqwest::blocking::get(&url)
-        .expect("Failed to retrieve URL.")
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|_| format!("Failed to send request to '{}'", url))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Film/series '{}' not found (HTTP {})",
+            title,
+            response.status()
+        ));
+    }
+
+    response
         .json::<Value>()
-        .expect("Failed to parse JSON.")
+        .await
+        .map_err(|_| "Failed to parse response JSON.".to_string())
 }
 
 /// Build a vector of properties to diplay based on user-selected flags.
@@ -122,7 +142,6 @@ fn build_props(args: &Reel) -> Vec<&'static str> {
 }
 
 use colored::*;
-use serde_json::Value;
 /// Print formatted film or series information.
 ///
 /// If the OMDb API returns an error, a red error will be displayed and the progam will exit.
@@ -236,31 +255,48 @@ fn print_difference(a: &Value, b: &Value) {
     }
 }
 
-/// Entry point.
-///
-/// Parses CLI arguments, requests response(s) from OMDb, and displays film/series information.
-fn main() {
+/// Entry point for reel CLI
+#[tokio::main]
+async fn main() {
     let args = Reel::parse();
+
     if args.query.is_empty() || args.query.iter().any(|q| q.trim().is_empty()) {
-        if args.query.len() > 1 {
-            eprintln!("Both titles must be non-empty.");
-            std::process::exit(1);
-        } else {
-            eprintln!("Please provide a non-empty title.");
-            std::process::exit(1);
-        }
+        eprintln!("{}", "Please provide non-empty title(s).".red());
+        std::process::exit(1);
     }
 
-    let movie1 = fetch_movie(&args.query[0], args.year);
+    let client = reqwest::Client::new();
 
-    let props_to_show = build_props(&args);
+    if args.query.len() == 1 {
+        let movie1 = match fetch_movie_async(&client, &args.query[0], args.year).await {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("{}", e.red());
+                std::process::exit(1);
+            }
+        };
 
-    if let Some(second) = args.query.get(1) {
-        let movie2 = fetch_movie(second, args.year);
+        let props_to_show = build_props(&args);
+        print_info(&movie1, props_to_show);
 
+    } else {
+        // Parallel fetch both movies
+        let (movie1_res, movie2_res) = tokio::join!(
+            fetch_movie_async(&client, &args.query[0], args.year),
+            fetch_movie_async(&client, &args.query[1], args.year)
+        );
+
+        let movie1 = match movie1_res {
+            Ok(m) => m,
+            Err(e) => { eprintln!("{}", e.red()); std::process::exit(1); }
+        };
+        let movie2 = match movie2_res {
+            Ok(m) => m,
+            Err(e) => { eprintln!("{}", e.red()); std::process::exit(1); }
+        };
+
+        let props_to_show = build_props(&args);
         print_side_by_side(&movie1, &movie2, props_to_show);
         print_difference(&movie1, &movie2);
-    } else {
-        print_info(&movie1, props_to_show);
     }
 }
