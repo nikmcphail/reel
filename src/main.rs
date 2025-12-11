@@ -62,8 +62,15 @@ struct Reel {
     #[arg(short = 'R', long = "rated", help = "Show the MPA rating.")]
     rated: bool,
     /// Show award wins and nominations.
-    #[arg(short = 'A', long = "awards", help = "Show award wins and nominations.")]
+    #[arg(
+        short = 'A',
+        long = "awards",
+        help = "Show award wins and nominations."
+    )]
     awards: bool,
+    /// Show poster link.
+    #[arg(short = 'P', long = "poster", help = "Show poster link.")]
+    poster: bool,
 }
 
 /// Build a vector of properties to diplay based on user-selected flags.
@@ -115,6 +122,9 @@ fn build_props(args: &Reel) -> Vec<&'static str> {
     }
     if args.awards {
         props.push("Awards");
+    }
+    if args.poster {
+        props.push("Poster");
     }
 
     props
