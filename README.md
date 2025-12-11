@@ -1,6 +1,6 @@
 # reel
 
-**reel** — CLI tool written in Rust to search up information about films or series.
+**reel** — CLI written in Rust to search up information about films or series.
 
 ## What is this?
 `reel` lets you search for movie or series information using the command line.
