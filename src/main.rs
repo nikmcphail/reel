@@ -44,13 +44,6 @@ struct Reel {
     /// Show the IMDb rating.
     #[arg(short = 'i', long = "imdb-rating", help = "Show the IMDb rating.")]
     imdb_rating: bool,
-    /// Show the Rotten Tomatoes score.
-    #[arg(
-        short = 't',
-        long = "tomato-meter",
-        help = "Show the Rotten Tomatoes score."
-    )]
-    tomato_meter: bool,
     /// Show the box office earnings.
     #[arg(
         short = 'b',
@@ -112,7 +105,6 @@ fn build_props(args: &Reel) -> Vec<&'static str> {
         (args.country, "Country"),
         (args.metascore, "Metascore"),
         (args.imdb_rating, "imdbRating"),
-        (args.tomato_meter, "tomatoMeter"),
         (args.box_office, "BoxOffice"),
         (args.rated, "Rated"),
         (args.awards, "Awards"),
@@ -211,8 +203,7 @@ fn print_difference(a: &Value, b: &Value) {
     println!("\n{}", "Differences".bold().yellow());
 
     fn parse_num(s: &str) -> Option<f64> {
-        s.replace("%", "")
-            .replace("min", "")
+        s.replace("min", "")
             .replace("$", "")
             .replace(",", "")
             .trim()
@@ -224,7 +215,6 @@ fn print_difference(a: &Value, b: &Value) {
         ("Runtime", "min"),
         ("Metascore", " pts"),
         ("imdbRating", " pts"),
-        ("tomatoMeter", "%"),
         ("BoxOffice", " USD"),
     ];
 
