@@ -176,12 +176,6 @@ fn print_side_by_side(a: &Value, b: &Value, props: Vec<&'static str>) {
     let col_width = 40;
 
     println!("{}", "Comparison".bold().yellow());
-    println!(
-        "{:<15} {:<40} {:<40}",
-        "Field".purple(),
-        "Title #1".purple(),
-        "Title #2".purple()
-    );
 
     for prop in props {
         let left_raw = a[prop].as_str().unwrap_or("N/A");
