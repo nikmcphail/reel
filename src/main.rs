@@ -156,15 +156,9 @@ fn main() {
         }
 
         let response: Value = reqwest::blocking::get(&url)
-            .unwrap_or_else(|e| {
-                eprintln!("Failed to fetch URL: {e}");
-                std::process::exit(1);
-            })
-            .json::<Value>()
-            .unwrap_or_else(|e| {
-                eprintln!("Failed to parse JSON: {e}");
-                std::process::exit(1);
-            });
+        .expect("Failed to retrieve URL")
+        .json::<Value>()
+        .expect("Failed to parse JSON.");
 
         let props_to_show = build_props(&args);
 
