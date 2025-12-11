@@ -22,8 +22,7 @@ cargo build --release
 ```
 
 ## Arguments / Help
-<img width="413" height="396" alt="image" src="https://github.com/user-attachments/assets/57a370b5-8a4d-4916-b135-37698456a186" />
-
+<img width="404" height="376" alt="image" src="https://github.com/user-attachments/assets/01efa68f-d349-412a-abb0-b8750da3370b" />
 
 ## Example Outputs
 `reel "La La Land" -waiA`
