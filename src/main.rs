@@ -274,7 +274,7 @@ fn print_difference(a: &Value, b: &Value) {
             }
             _ => {
                 println!(
-                    "{:<15} {:<10} / {:<10} -> {}",
+                    "{:<15} {:<10} / {:<10} [{}]",
                     field.green(),
                     va,
                     vb,
