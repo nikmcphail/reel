@@ -210,13 +210,13 @@ fn print_side_by_side(a: &Value, b: &Value, props: Vec<&'static str>) {
 fn print_difference(a: &Value, b: &Value) {
     println!("\n{}", "Differences".bold().yellow());
 
-    fn parse_num(s: &str) -> Option<f32> {
+    fn parse_num(s: &str) -> Option<f64> {
         s.replace("%", "")
             .replace("min", "")
             .replace("$", "")
             .replace(",", "")
             .trim()
-            .parse::<f32>()
+            .parse::<f64>()
             .ok()
     }
 
@@ -233,7 +233,7 @@ fn print_difference(a: &Value, b: &Value) {
         let vb = b[field].as_str().unwrap_or("N/A");
 
         if let (Some(n1), Some(n2)) = (parse_num(va), parse_num(vb)) {
-            let diff = n1 - n2;
+            let diff = n1.max(n2) - n1.min(n2);
             println!(
                 "{:<15} {}{} ({:+.2} {})",
                 field.green(),
