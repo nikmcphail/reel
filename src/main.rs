@@ -1,6 +1,9 @@
 /// Base URL for OMDb API
 const API_URL: &str = "http://www.omdbapi.com/?apikey=";
 /// Default key for OMDb API.
+/// 
+/// Make sure to replace with your own API key if you want a consistent 1000 requests per day.
+/// <https://www.omdbapi.com/apikey.aspx>
 const DEFAULT_KEY: &str = "5e540903";
 
 use clap::Parser;
