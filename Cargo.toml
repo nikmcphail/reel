@@ -1,6 +1,6 @@
 [package]
 name = "reel"
-description = "Get information about movies and series."
+description = "Get information about films or series."
 version = "0.1.0"
 edition = "2024"
 
