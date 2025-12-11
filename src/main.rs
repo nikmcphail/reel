@@ -1,53 +1,82 @@
+/// Base URL for OMDb API
 const API_URL: &str = "http://www.omdbapi.com/?apikey=";
+/// Default key for OMDb API.
 const DEFAULT_KEY: &str = "5e540903";
 
 use clap::Parser;
+/// CLI arguments for querying movie and series information.
 #[derive(Parser)]
 #[command(about)]
 struct Reel {
+    /// Film or series title.
+    #[arg(help = "Film or series title.")]
     query: String,
 
-    #[arg(short = 'y', long = "year", help = "Specify release year")]
+    /// Specify release year.
+    #[arg(short = 'y', long = "year", help = "Specify release year.")]
     year: Option<u16>,
 
-    #[arg(short = 'w', long = "writer", help = "Show the writer(s)")]
+    /// Show the writer(s).
+    #[arg(short = 'w', long = "writer", help = "Show the writer(s).")]
     writer: bool,
-    #[arg(short = 'r', long = "released", help = "Show the release date")]
+    /// Show the release date.
+    #[arg(short = 'r', long = "released", help = "Show the release date.")]
     released: bool,
-    #[arg(short = 'a', long = "actors", help = "Show the main cast")]
+    /// Show the main cast.
+    #[arg(short = 'a', long = "actors", help = "Show the main cast.")]
     actors: bool,
-    #[arg(short = 'p', long = "plot", help = "Show the plot summary")]
+    /// Show the plot summary.
+    #[arg(short = 'p', long = "plot", help = "Show the plot summary.")]
     plot: bool,
-    #[arg(short = 'l', long = "language", help = "Show the language(s)")]
+    /// Show the language(s).
+    #[arg(short = 'l', long = "language", help = "Show the language(s).")]
     language: bool,
+    /// Show the country(ies) of production.
     #[arg(
         short = 'c',
         long = "country",
-        help = "Show the country(ies) of production"
+        help = "Show the country(ies) of production."
     )]
     country: bool,
-    #[arg(short = 'm', long = "metascore", help = "Show the Metacritic score")]
+    /// Show the Metacritic score.
+    #[arg(short = 'm', long = "metascore", help = "Show the Metacritic score.")]
     metascore: bool,
-    #[arg(short = 'i', long = "imdb-rating", help = "Show the IMDb rating")]
+    /// Show the IMDb rating.
+    #[arg(short = 'i', long = "imdb-rating", help = "Show the IMDb rating.")]
     imdb_rating: bool,
+    /// Show the Rotten Tomatoes score.
     #[arg(
         short = 't',
         long = "tomato-meter",
-        help = "Show the Rotten Tomatoes score"
+        help = "Show the Rotten Tomatoes score."
     )]
     tomato_meter: bool,
+    /// Show the box office earnings.
     #[arg(
         short = 'b',
         long = "box-office",
-        help = "Show the box office earnings"
+        help = "Show the box office earnings."
     )]
     box_office: bool,
-    #[arg(short = 'R', long = "rated", help = "Show the MPA rating")]
+    /// Show the MPA rating.
+    #[arg(short = 'R', long = "rated", help = "Show the MPA rating.")]
     rated: bool,
-    #[arg(short = 'A', long = "awards", help = "Show award wins and nominations")]
+    /// Show award wins and nominations.
+    #[arg(short = 'A', long = "awards", help = "Show award wins and nominations.")]
     awards: bool,
 }
 
+/// Build a vector of properties to diplay based on user-selected flags.
+///
+/// Always includes `Title`, `Director`, `Year`, `Runtime`, and `Genre`.
+///
+/// # Arguments
+///
+/// * `args` - Reference to the `Reel` struct containing user input.
+///
+/// # Returns
+///
+/// A vector of static string slices representing the fields to display.
 fn build_props(args: &Reel) -> Vec<&'static str> {
     let mut props = vec!["Title", "Director", "Year", "Runtime", "Genre"];
 
@@ -93,6 +122,14 @@ fn build_props(args: &Reel) -> Vec<&'static str> {
 
 use colored::*;
 use serde_json::Value;
+/// Print formatted film or series information.
+///
+/// If the OMDb API returns an error, a red error will be displayed and the progam will exit.
+///
+/// # Arguments
+///
+/// * `media` - JSON response from OMDb.
+/// * `props_to_show` - Vector of properties to display.
 fn print_info(media: &Value, props_to_show: Vec<&'static str>) {
     if media["Response"] == "False" {
         let error_msg = media["Error"].as_str().unwrap_or("Unknown error.");
@@ -110,6 +147,9 @@ fn print_info(media: &Value, props_to_show: Vec<&'static str>) {
     }
 }
 
+/// Entry point
+///
+/// Parses CLI arguments, requests response from OMDb, and prints requested information.
 fn main() {
     let args = Reel::parse();
     if args.query.is_empty() {
