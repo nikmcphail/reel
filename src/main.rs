@@ -244,16 +244,43 @@ fn print_difference(a: &Value, b: &Value) {
         let va = a[field].as_str().unwrap_or("N/A");
         let vb = b[field].as_str().unwrap_or("N/A");
 
-        if let (Some(n1), Some(n2)) = (parse_num(va), parse_num(vb)) {
-            let diff = n1.max(n2) - n1.min(n2);
-            println!(
-                "{:<15} {}{} ({:+.2} {})",
-                field.green(),
-                n1,
-                unit,
-                diff,
-                unit
-            );
+        match (parse_num(va), parse_num(vb)) {
+            (Some(n1), Some(n2)) => {
+                let diff = n1 - n2;
+                let diff_colored = if diff > 0.0 {
+                    format!("{:+.2}", diff).green()
+                } else if diff < 0.0 {
+                    format!("{:+.2}", diff).red()
+                } else {
+                    format!("{:+.2}", diff).yellow()
+                };
+
+                let winner = if diff > 0.0 {
+                    a["Title"].as_str().unwrap_or("Title A").cyan()
+                } else if diff < 0.0 {
+                    b["Title"].as_str().unwrap_or("Title B").cyan()
+                } else {
+                    "Tie".yellow()
+                };
+
+                println!(
+                    "{:<15} {}{} ({}) [{}]",
+                    field.green(),
+                    n1,
+                    unit,
+                    diff_colored,
+                    winner
+                );
+            }
+            _ => {
+                println!(
+                    "{:<15} {:<10} / {:<10} -> {}",
+                    field.green(),
+                    va,
+                    vb,
+                    "N/A".yellow()
+                );
+            }
         }
     }
 }
