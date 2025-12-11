@@ -9,8 +9,8 @@ use clap::Parser;
 #[command(about)]
 struct Reel {
     /// Film or series title.
-    #[arg(help = "Film or series title.")]
-    query: String,
+    #[arg(required = true, num_args = 1..=2, help = "Film or series title.")]
+    query: Vec<String>,
 
     /// Specify release year.
     #[arg(short = 'y', long = "year", help = "Specify release year.")]
@@ -73,6 +73,23 @@ struct Reel {
     poster: bool,
 }
 
+/// Fetch information from OMDb.
+///
+/// * `title` - Title of film/series.
+/// * `year` - Release year of title. (Optional)
+fn fetch_movie(title: &str, year: Option<u16>) -> Value {
+    let formatted = title.replace(' ', "+");
+    let mut url = format!("{}{}&t={}", API_URL, DEFAULT_KEY, formatted);
+
+    if let Some(y) = year {
+        url.push_str(&format!("&y={}", y));
+    }
+    reqwest::blocking::get(&url)
+        .expect("Failed to retrieve URL.")
+        .json::<Value>()
+        .expect("Failed to parse JSON.")
+}
+
 /// Build a vector of properties to diplay based on user-selected flags.
 ///
 /// Always includes `Title`, `Director`, `Year`, `Runtime`, and `Genre`.
@@ -122,46 +139,144 @@ use serde_json::Value;
 ///
 /// * `media` - JSON response from OMDb.
 /// * `props_to_show` - Vector of properties to display.
-fn print_info(media: &Value, props_to_show: Vec<&'static str>) {
+fn print_info(media: &Value, props: Vec<&'static str>) {
     if media["Response"] == "False" {
         let error_msg = media["Error"].as_str().unwrap_or("Unknown error.");
         eprintln!("{}", error_msg.red());
         std::process::exit(1);
     }
 
-    for prop in props_to_show {
+    for prop in props {
         if let Some(val) = media[prop].as_str()
             && val != "N/A"
         {
             let spacing = 13usize.saturating_sub(prop.len());
-            println!("{}{} :: {}", prop.bold().green(), " ".repeat(spacing), val)
+            println!("{}{} {}", prop.bold().green(), " ".repeat(spacing), val)
         }
     }
 }
 
-/// Entry point
+/// Wrap a string to a fixed size in the terminal.
 ///
-/// Parses CLI arguments, requests response from OMDb, and prints requested information.
-fn main() {
-    let args = Reel::parse();
-    if args.query.is_empty() {
-        eprintln!("Please provide a film or series name.");
-        std::process::exit(1);
-    } else {
-        let title = args.query.replace(' ', "+");
-        let mut url = format!("{}{}&t={}", API_URL, DEFAULT_KEY, title);
+/// * `s` - String to wrap.
+/// * `width` - Size to wrap to.
+fn wrap_lines(s: &str, width: usize) -> Vec<String> {
+    textwrap::wrap(s, width)
+        .into_iter()
+        .map(|line| line.to_string())
+        .collect()
+}
 
-        if let Some(year) = args.year {
-            url.push_str(&format!("&y={}", year));
+/// Print two films/series next to each other.
+///
+/// * `a` - First film/series.
+/// * `b` - Second film/series.
+/// * `props` - Properties to display.
+fn print_side_by_side(a: &Value, b: &Value, props: Vec<&'static str>) {
+    let col_width = 40;
+
+    println!("{}", "Comparison".bold().yellow());
+    println!(
+        "{:<15} {:<40} {:<40}",
+        "Field".purple(),
+        "Title #1".purple(),
+        "Title #2".purple()
+    );
+
+    for prop in props {
+        let left_raw = a[prop].as_str().unwrap_or("N/A");
+        let right_raw = b[prop].as_str().unwrap_or("N/A");
+
+        if prop == "Poster" {
+            continue;
         }
 
-        let response: Value = reqwest::blocking::get(&url)
-        .expect("Failed to retrieve URL")
-        .json::<Value>()
-        .expect("Failed to parse JSON.");
+        let left_lines = wrap_lines(left_raw, col_width);
+        let right_lines = wrap_lines(right_raw, col_width);
 
-        let props_to_show = build_props(&args);
+        let max = left_lines.len().max(right_lines.len());
 
-        print_info(&response, props_to_show);
+        for i in 0..max {
+            let left = left_lines.get(i).map(|s| s.as_str()).unwrap_or("");
+            let right = right_lines.get(i).map(|s| s.as_str()).unwrap_or("");
+
+            if i == 0 {
+                println!("{:<15} {:<40} {}", prop.green(), left, right);
+            } else {
+                println!("{:<15} {:<40} {}", "", left, right);
+            }
+        }
+    }
+}
+
+/// Print the difference in specific stats between two films/series.
+///
+/// * `a` - First film/series.
+/// * `b` - Second film/series.
+fn print_difference(a: &Value, b: &Value) {
+    println!("\n{}", "Differences".bold().yellow());
+
+    fn parse_num(s: &str) -> Option<f32> {
+        s.replace("%", "")
+            .replace("min", "")
+            .replace("$", "")
+            .replace(",", "")
+            .trim()
+            .parse::<f32>()
+            .ok()
+    }
+
+    let fields = [
+        ("Runtime", "min"),
+        ("Metascore", " pts"),
+        ("imdbRating", " pts"),
+        ("tomatoMeter", "%"),
+        ("BoxOffice", " USD"),
+    ];
+
+    for (field, unit) in fields {
+        let va = a[field].as_str().unwrap_or("N/A");
+        let vb = b[field].as_str().unwrap_or("N/A");
+
+        if let (Some(n1), Some(n2)) = (parse_num(va), parse_num(vb)) {
+            let diff = n1 - n2;
+            println!(
+                "{:<15} {}{} ({:+.2} {})",
+                field.green(),
+                n1,
+                unit,
+                diff,
+                unit
+            );
+        }
+    }
+}
+
+/// Entry point.
+///
+/// Parses CLI arguments, requests response(s) from OMDb, and displays film/series information.
+fn main() {
+    let args = Reel::parse();
+    if args.query.is_empty() || args.query.iter().any(|q| q.trim().is_empty()) {
+        if args.query.len() > 1 {
+            eprintln!("Both titles must be non-empty.");
+            std::process::exit(1);
+        } else {
+            eprintln!("Please provide a non-empty title.");
+            std::process::exit(1);
+        }
+    }
+
+    let movie1 = fetch_movie(&args.query[0], args.year);
+
+    let props_to_show = build_props(&args);
+
+    if let Some(second) = args.query.get(1) {
+        let movie2 = fetch_movie(second, args.year);
+
+        print_side_by_side(&movie1, &movie2, props_to_show);
+        print_difference(&movie1, &movie2);
+    } else {
+        print_info(&movie1, props_to_show);
     }
 }

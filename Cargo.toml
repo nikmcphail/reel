@@ -9,4 +9,4 @@ clap = {version = "*", features = ["derive"]}
 reqwest = {version = "*", features = ["blocking", "json"]}
 serde_json = {version = "*"}
 colored = {version = "*"}
-
+textwrap = {version = "*"}
