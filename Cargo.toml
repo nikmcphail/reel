@@ -11,3 +11,4 @@ serde_json = {version = "*"}
 colored = {version = "*"}
 textwrap = {version = "*"}
 tokio = {version = "*", features=["full"]}
+indicatif = {version = "*"}

@@ -1,7 +1,7 @@
 /// Base URL for OMDb API
 const API_URL: &str = "http://www.omdbapi.com/?apikey=";
 /// Default key for OMDb API.
-/// 
+///
 /// Make sure to replace with your own API key if you want a consistent 1000 requests per day.
 /// <https://www.omdbapi.com/apikey.aspx>
 const DEFAULT_KEY: &str = "5e540903";
@@ -78,7 +78,11 @@ use serde_json::Value;
 /// * `client` - A reference to a `reqwest::Client` to reuse connections efficiently.
 /// * `title` - The title of the movie or series to fetch.
 /// * `year` - Optional release year to narrow the search.
-async fn fetch_movie_async(client: &Client, title: &str, year: Option<u16>) -> Result<Value, String> {
+async fn fetch_movie_async(
+    client: &Client,
+    title: &str,
+    year: Option<u16>,
+) -> Result<Value, String> {
     let formatted = title.replace(' ', "+");
     let mut url = format!("{}{}&t={}", API_URL, DEFAULT_KEY, formatted);
 
@@ -285,10 +289,18 @@ fn print_difference(a: &Value, b: &Value) {
     }
 }
 
+use indicatif::{ProgressBar, ProgressStyle};
+use tokio::time::Duration;
 /// Entry point for reel CLI
 #[tokio::main]
 async fn main() {
     let args = Reel::parse();
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(
+        ProgressStyle::with_template("{spinner} {msg}")
+            .unwrap()
+            .tick_strings(&["⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"]),
+    );
 
     if args.query.is_empty() || args.query.iter().any(|q| q.trim().is_empty()) {
         eprintln!("{}", "Please provide non-empty title(s).".red());
@@ -298,6 +310,8 @@ async fn main() {
     let client = reqwest::Client::new();
 
     if args.query.len() == 1 {
+        spinner.set_message("Contacting OMDb...");
+        spinner.enable_steady_tick(Duration::from_millis(120));
         let movie1 = match fetch_movie_async(&client, &args.query[0], args.year).await {
             Ok(m) => m,
             Err(e) => {
@@ -305,24 +319,34 @@ async fn main() {
                 std::process::exit(1);
             }
         };
+        spinner.finish_and_clear();
 
         let props_to_show = build_props(&args);
         print_info(&movie1, props_to_show);
-
     } else {
+        spinner.set_message("Contacting OMDb...");
+        spinner.enable_steady_tick(Duration::from_millis(120));
         // Parallel fetch both movies
         let (movie1_res, movie2_res) = tokio::join!(
             fetch_movie_async(&client, &args.query[0], args.year),
             fetch_movie_async(&client, &args.query[1], args.year)
         );
 
+        spinner.finish_and_clear();
+
         let movie1 = match movie1_res {
             Ok(m) => m,
-            Err(e) => { eprintln!("{}", e.red()); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("{}", e.red());
+                std::process::exit(1);
+            }
         };
         let movie2 = match movie2_res {
             Ok(m) => m,
-            Err(e) => { eprintln!("{}", e.red()); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("{}", e.red());
+                std::process::exit(1);
+            }
         };
 
         let props_to_show = build_props(&args);
