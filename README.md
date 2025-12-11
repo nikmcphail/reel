@@ -22,7 +22,8 @@ cargo build --release
 ```
 
 ## Arguments / Help
-<img width="422" height="378" alt="image" src="https://github.com/user-attachments/assets/2c720cf8-7f97-42be-8444-25d270f18e76" />
+<img width="413" height="396" alt="image" src="https://github.com/user-attachments/assets/57a370b5-8a4d-4916-b135-37698456a186" />
+
 
 ## Example Outputs
 `reel "La La Land" -waiA`
@@ -33,4 +34,5 @@ cargo build --release
 
 <img width="276" height="121" alt="image" src="https://github.com/user-attachments/assets/71df6cc9-bcb6-4784-9336-2afb2417b1c7" />
 
+## License
 This project is released under the [Unlicense](LICENSE). You can copy, modify, and distribute it freely.
