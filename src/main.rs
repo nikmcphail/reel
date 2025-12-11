@@ -85,47 +85,29 @@ struct Reel {
 ///
 /// A vector of static string slices representing the fields to display.
 fn build_props(args: &Reel) -> Vec<&'static str> {
-    let mut props = vec!["Title", "Director", "Year", "Runtime", "Genre"];
+    let base = ["Title", "Director", "Year", "Runtime", "Genre"];
+    let flags = [
+        (args.writer, "Writer"),
+        (args.released, "Released"),
+        (args.actors, "Actors"),
+        (args.plot, "Plot"),
+        (args.language, "Language"),
+        (args.country, "Country"),
+        (args.metascore, "Metascore"),
+        (args.imdb_rating, "imdbRating"),
+        (args.tomato_meter, "tomatoMeter"),
+        (args.box_office, "BoxOffice"),
+        (args.rated, "Rated"),
+        (args.awards, "Awards"),
+        (args.poster, "Poster"),
+    ];
 
-    if args.writer {
-        props.push("Writer");
-    }
-    if args.released {
-        props.push("Released");
-    }
-    if args.actors {
-        props.push("Actors");
-    }
-    if args.plot {
-        props.push("Plot");
-    }
-    if args.language {
-        props.push("Language");
-    }
-    if args.country {
-        props.push("Country");
-    }
-    if args.metascore {
-        props.push("Metascore");
-    }
-    if args.imdb_rating {
-        props.push("imdbRating");
-    }
-    if args.tomato_meter {
-        props.push("tomatoMeter");
-    }
-    if args.box_office {
-        props.push("BoxOffice");
-    }
-    if args.rated {
-        props.push("Rated");
-    }
-    if args.awards {
-        props.push("Awards");
-    }
-    if args.poster {
-        props.push("Poster");
-    }
+    let mut props: Vec<&'static str> = base.into();
+    props.extend(
+        flags
+            .into_iter()
+            .filter_map(|(flag, prop)| flag.then_some(prop)),
+    );
 
     props
 }
@@ -174,9 +156,15 @@ fn main() {
         }
 
         let response: Value = reqwest::blocking::get(&url)
-            .expect("Failed to make request.")
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to fetch URL: {e}");
+                std::process::exit(1);
+            })
             .json::<Value>()
-            .expect("Failed to parse JSON.");
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to parse JSON: {e}");
+                std::process::exit(1);
+            });
 
         let props_to_show = build_props(&args);
 
