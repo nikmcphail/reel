@@ -1,3 +1,4 @@
+use crate::cli::Reel;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -9,23 +10,26 @@ const DEFAULT_KEY: &str = "4387ea2a"; // Replace with your own key (they are fre
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct TitleData {
-    pub title: String,
-    pub director: String,
-    pub year: String,
-    pub runtime: String,
-    pub genre: String,
-    pub writer: String,
-    pub released: String,
-    pub actors: String,
-    pub language: String,
-    pub country: String,
-    pub metascore: String,
+    pub title: Option<String>,
+    pub director: Option<String>,
+    pub year: Option<String>,
+    pub runtime: Option<String>,
+    pub genre: Option<String>,
+    pub writer: Option<String>,
+    pub released: Option<String>,
+    pub actors: Option<String>,
+    pub language: Option<String>,
+    pub country: Option<String>,
+    pub metascore: Option<String>,
+
     #[serde(rename = "imdbRating")]
-    pub imdb_rating: String,
+    pub imdb_rating: Option<String>,
+
     #[serde(rename = "imdbID")]
-    pub imdb_id: String,
-    pub box_office: String,
-    pub rated: String,
+    pub imdb_id: Option<String>,
+
+    pub box_office: Option<String>,
+    pub rated: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -54,4 +58,89 @@ pub async fn fetch_title_data(
     let data = response.json::<TitleData>().await?;
 
     Ok(data)
+}
+
+pub struct Column {
+    pub header: &'static str,
+    pub enabled: fn(&Reel) -> bool,
+    pub value: fn(&TitleData) -> String,
+}
+
+fn opt(v: &Option<String>) -> String {
+    v.clone().unwrap_or_else(|| "—".to_string())
+}
+
+pub fn get_columns() -> Vec<Column> {
+    vec![
+        Column {
+            header: "Title",
+            enabled: |_| true,
+            value: |d| opt(&d.title),
+        },
+        Column {
+            header: "Director",
+            enabled: |_| true,
+            value: |d| opt(&d.director),
+        },
+        Column {
+            header: "Year",
+            enabled: |_| true,
+            value: |d| opt(&d.year),
+        },
+        Column {
+            header: "Runtime",
+            enabled: |_| true,
+            value: |d| opt(&d.runtime),
+        },
+        Column {
+            header: "Genre",
+            enabled: |_| true,
+            value: |d| opt(&d.genre),
+        },
+        Column {
+            header: "Writer",
+            enabled: |r| r.writer,
+            value: |d| opt(&d.writer),
+        },
+        Column {
+            header: "Released",
+            enabled: |r| r.released,
+            value: |d| opt(&d.released),
+        },
+        Column {
+            header: "Actors",
+            enabled: |r| r.actors,
+            value: |d| opt(&d.actors),
+        },
+        Column {
+            header: "Language",
+            enabled: |r| r.language,
+            value: |d| opt(&d.language),
+        },
+        Column {
+            header: "Country",
+            enabled: |r| r.country,
+            value: |d| opt(&d.country),
+        },
+        Column {
+            header: "Metascore",
+            enabled: |r| r.metascore,
+            value: |d| opt(&d.metascore),
+        },
+        Column {
+            header: "IMDb Rating",
+            enabled: |r| r.imdb,
+            value: |d| opt(&d.imdb_rating),
+        },
+        Column {
+            header: "Box Office",
+            enabled: |r| r.box_office,
+            value: |d| opt(&d.box_office),
+        },
+        Column {
+            header: "MPA Rating",
+            enabled: |r| r.rating,
+            value: |d| opt(&d.rated),
+        },
+    ]
 }
