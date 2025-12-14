@@ -23,7 +23,28 @@ cargo build --release
 
 ## Arguments / Help
 
-<img width="468" height="298" alt="image" src="https://github.com/user-attachments/assets/279beb10-5d6e-4f91-ac04-7d0e4f9deceb" />
+```
+Usage: reel [OPTIONS] <QUERIES>...
+
+Arguments:
+  <QUERIES>...  Film or series title.
+
+Options:
+  -y, --year <YEAR>  Release year. (Only works for single title.)
+  -w, --writer       Show the writer(s).
+  -r, --released     Show release date.
+  -a, --actors       Show the main cast.
+  -l, --language     Show the language(s).
+  -c, --country      Show the country(ies).
+  -m, --metascore    Show the Metacritic score.
+  -i, --imdb         Show the IMDb rating.
+  -b, --box-office   Show the box office earnings.
+  -R, --rating       Show the MPA rating.
+  -A, --awards       Show award nominations and wins.
+  -p, --plot         Show the plot summary.
+  -C, --compare      Compare titles.
+  -h, --help         Print help
+  ```
 
 ## Example Outputs
 `reel "La La Land" -wai`
