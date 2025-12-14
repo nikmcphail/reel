@@ -35,4 +35,8 @@ pub struct Reel {
     pub box_office: bool,
     #[arg(short = 'R', long = "rating", help = "Show the MPA rating.")]
     pub rating: bool,
+    #[arg(short = 'A', long = "awards", help = "Show award nominations and wins.")]
+    pub awards: bool,
+    #[arg(short = 'p', long = "plot", help = "Show the plot summary.")]
+    pub plot: bool,
 }

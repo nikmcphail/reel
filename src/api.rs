@@ -30,6 +30,8 @@ pub struct TitleData {
 
     pub box_office: Option<String>,
     pub rated: Option<String>,
+    pub awards: Option<String>,
+    pub plot: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -142,5 +144,15 @@ pub fn get_columns() -> Vec<Column> {
             enabled: |r| r.rating,
             value: |d| opt(&d.rated),
         },
+        Column {
+            header: "Awards",
+            enabled: |r| r.awards,
+            value: |d| opt(&d.awards),
+        },
+        Column {
+            header: "Plot",
+            enabled: |r| r.plot,
+            value: |d| opt(&d.plot),
+        }
     ]
 }
