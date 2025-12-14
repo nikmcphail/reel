@@ -1,356 +1,173 @@
-/// Base URL for OMDb API
-const API_URL: &str = "http://www.omdbapi.com/?apikey=";
-/// Default key for OMDb API.
-///
-/// Make sure to replace with your own API key if you want a consistent 1000 requests per day.
-/// <https://www.omdbapi.com/apikey.aspx>
-const DEFAULT_KEY: &str = "5e540903";
+mod api;
+mod cli;
 
 use clap::Parser;
-/// CLI arguments for querying movie and series information.
-#[derive(Parser)]
-#[command(about)]
-struct Reel {
-    /// Film or series title.
-    #[arg(required = true, num_args = 1..=2, help = "Film or series title.")]
-    query: Vec<String>,
-
-    /// Specify release year.
-    #[arg(short = 'y', long = "year", help = "Specify release year.")]
-    year: Option<u16>,
-
-    /// Show the writer(s).
-    #[arg(short = 'w', long = "writer", help = "Show the writer(s).")]
-    writer: bool,
-    /// Show the release date.
-    #[arg(short = 'r', long = "released", help = "Show the release date.")]
-    released: bool,
-    /// Show the main cast.
-    #[arg(short = 'a', long = "actors", help = "Show the main cast.")]
-    actors: bool,
-    /// Show the plot summary.
-    #[arg(short = 'p', long = "plot", help = "Show the plot summary.")]
-    plot: bool,
-    /// Show the language(s).
-    #[arg(short = 'l', long = "language", help = "Show the language(s).")]
-    language: bool,
-    /// Show the country(ies) of production.
-    #[arg(
-        short = 'c',
-        long = "country",
-        help = "Show the country(ies) of production."
-    )]
-    country: bool,
-    /// Show the Metacritic score.
-    #[arg(short = 'm', long = "metascore", help = "Show the Metacritic score.")]
-    metascore: bool,
-    /// Show the IMDb rating.
-    #[arg(short = 'i', long = "imdb-rating", help = "Show the IMDb rating.")]
-    imdb_rating: bool,
-    /// Show the box office earnings.
-    #[arg(
-        short = 'b',
-        long = "box-office",
-        help = "Show the box office earnings."
-    )]
-    box_office: bool,
-    /// Show the MPA rating.
-    #[arg(short = 'R', long = "rated", help = "Show the MPA rating.")]
-    rated: bool,
-    /// Show award wins and nominations.
-    #[arg(
-        short = 'A',
-        long = "awards",
-        help = "Show award wins and nominations."
-    )]
-    awards: bool,
-    /// Show poster link.
-    #[arg(short = 'P', long = "poster", help = "Show poster link.")]
-    poster: bool,
-}
-
+use comfy_table::{
+    Cell, Color, Table, modifiers::UTF8_ROUND_CORNERS, modifiers::UTF8_SOLID_INNER_BORDERS,
+    presets::UTF8_FULL,
+};
 use reqwest::Client;
-use serde_json::Value;
-/// Fetches film or series information from the OMDb API asynchronously.
-///
-/// # Arguments
-///
-/// * `client` - A reference to a `reqwest::Client` to reuse connections efficiently.
-/// * `title` - The title of the movie or series to fetch.
-/// * `year` - Optional release year to narrow the search.
-async fn fetch_movie_async(
-    client: &Client,
-    title: &str,
-    year: Option<u16>,
-) -> Result<Value, String> {
-    let formatted = title.replace(' ', "+");
-    let mut url = format!("{}{}&t={}", API_URL, DEFAULT_KEY, formatted);
 
-    if let Some(y) = year {
-        url.push_str(&format!("&y={}", y));
-    }
+use api::TitleData;
+use api::fetch_title_data;
+use cli::Reel;
 
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|_| format!("Failed to send request to '{}'", url))?;
-
-    if !response.status().is_success() {
-        return Err(format!(
-            "Film/series '{}' not found (HTTP {})",
-            title,
-            response.status()
-        ));
-    }
-
-    response
-        .json::<Value>()
-        .await
-        .map_err(|_| "Failed to parse response JSON.".to_string())
+struct Column {
+    header: &'static str,
+    enabled: fn(&Reel) -> bool,
+    value: fn(&TitleData) -> String,
 }
 
-/// Build a vector of properties to diplay based on user-selected flags.
-///
-/// Always includes `Title`, `Director`, `Year`, `Runtime`, and `Genre`.
-///
-/// # Arguments
-///
-/// * `args` - Reference to the `Reel` struct containing user input.
-///
-/// # Returns
-///
-/// A vector of static string slices representing the fields to display.
-fn build_props(args: &Reel) -> Vec<&'static str> {
-    let base = ["Title", "Director", "Year", "Runtime", "Genre"];
-    let flags = [
-        (args.writer, "Writer"),
-        (args.released, "Released"),
-        (args.actors, "Actors"),
-        (args.plot, "Plot"),
-        (args.language, "Language"),
-        (args.country, "Country"),
-        (args.metascore, "Metascore"),
-        (args.imdb_rating, "imdbRating"),
-        (args.box_office, "BoxOffice"),
-        (args.rated, "Rated"),
-        (args.awards, "Awards"),
-        (args.poster, "Poster"),
-    ];
-
-    let mut props: Vec<&'static str> = base.into();
-    props.extend(
-        flags
-            .into_iter()
-            .filter_map(|(flag, prop)| flag.then_some(prop)),
-    );
-
-    props
+fn columns() -> Vec<Column> {
+    vec![
+        Column {
+            header: "Title",
+            enabled: |_| true,
+            value: |d| d.title.clone(),
+        },
+        Column {
+            header: "Director",
+            enabled: |_| true,
+            value: |d| d.director.clone(),
+        },
+        Column {
+            header: "Year",
+            enabled: |_| true,
+            value: |d| d.year.clone(),
+        },
+        Column {
+            header: "Runtime",
+            enabled: |_| true,
+            value: |d| d.runtime.clone(),
+        },
+        Column {
+            header: "Genre",
+            enabled: |_| true,
+            value: |d| d.genre.clone(),
+        },
+        Column {
+            header: "Writer",
+            enabled: |r| r.writer,
+            value: |d| d.writer.clone(),
+        },
+        Column {
+            header: "Released",
+            enabled: |r| r.released,
+            value: |d| d.released.clone(),
+        },
+        Column {
+            header: "Actors",
+            enabled: |r| r.actors,
+            value: |d| d.actors.clone(),
+        },
+        Column {
+            header: "Language",
+            enabled: |r| r.language,
+            value: |d| d.language.clone(),
+        },
+        Column {
+            header: "Country",
+            enabled: |r| r.country,
+            value: |d| d.country.clone(),
+        },
+        Column {
+            header: "Metascore",
+            enabled: |r| r.metascore,
+            value: |d| d.metascore.clone(),
+        },
+        Column {
+            header: "IMDb Rating",
+            enabled: |r| r.imdb,
+            value: |d| d.imdb_rating.clone(),
+        },
+        Column {
+            header: "Box Office",
+            enabled: |r| r.box_office,
+            value: |d| d.box_office.clone(),
+        },
+        Column {
+            header: "MPA Rating",
+            enabled: |r| r.rating,
+            value: |d| d.rated.clone(),
+        },
+    ]
 }
 
-use colored::*;
-/// Print formatted film or series information.
-///
-/// If the OMDb API returns an error, a red error will be displayed and the progam will exit.
-///
-/// # Arguments
-///
-/// * `media` - JSON response from OMDb.
-/// * `props_to_show` - Vector of properties to display.
-fn print_info(media: &Value, props: Vec<&'static str>) {
-    if media["Response"] == "False" {
-        let error_msg = media["Error"].as_str().unwrap_or("Unknown error.");
-        eprintln!("{}", error_msg.red());
-        std::process::exit(1);
-    }
-
-    for prop in props {
-        if let Some(val) = media[prop].as_str()
-            && val != "N/A"
-        {
-            let spacing = 13usize.saturating_sub(prop.len());
-            println!("{}{} {}", prop.bold().green(), " ".repeat(spacing), val)
-        }
-    }
-}
-
-/// Wrap a string to a fixed size in the terminal.
-///
-/// * `s` - String to wrap.
-/// * `width` - Size to wrap to.
-fn wrap_lines(s: &str, width: usize) -> Vec<String> {
-    textwrap::wrap(s, width)
-        .into_iter()
-        .map(|line| line.to_string())
-        .collect()
-}
-
-/// Print two films/series next to each other.
-///
-/// * `a` - First film/series.
-/// * `b` - Second film/series.
-/// * `props` - Properties to display.
-fn print_side_by_side(a: &Value, b: &Value, props: Vec<&'static str>) {
-    let col_width = 40;
-
-    println!("{}", "Comparison".bold().yellow());
-
-    for prop in props {
-        let left_raw = a[prop].as_str().unwrap_or("N/A");
-        let right_raw = b[prop].as_str().unwrap_or("N/A");
-
-        if prop == "Poster" {
-            continue;
-        }
-
-        let left_lines = wrap_lines(left_raw, col_width);
-        let right_lines = wrap_lines(right_raw, col_width);
-
-        let max = left_lines.len().max(right_lines.len());
-
-        for i in 0..max {
-            let left = left_lines.get(i).map(|s| s.as_str()).unwrap_or("");
-            let right = right_lines.get(i).map(|s| s.as_str()).unwrap_or("");
-
-            if i == 0 {
-                println!("{:<15} {:<40} {}", prop.green(), left, right);
-            } else {
-                println!("{:<15} {:<40} {}", "", left, right);
-            }
-        }
-    }
-}
-
-/// Print the difference in specific stats between two films/series.
-///
-/// * `a` - First film/series.
-/// * `b` - Second film/series.
-fn print_difference(a: &Value, b: &Value) {
-    println!("\n{}", "Differences".bold().yellow());
-
-    fn parse_num(s: &str) -> Option<f64> {
-        s.replace("min", "")
-            .replace("$", "")
-            .replace(",", "")
-            .trim()
-            .parse::<f64>()
-            .ok()
-    }
-
-    let fields = [
-        ("Runtime", "min"),
-        ("Metascore", " pts"),
-        ("imdbRating", " pts"),
-        ("BoxOffice", " USD"),
-    ];
-
-    for (field, unit) in fields {
-        let va = a[field].as_str().unwrap_or("N/A");
-        let vb = b[field].as_str().unwrap_or("N/A");
-
-        match (parse_num(va), parse_num(vb)) {
-            (Some(n1), Some(n2)) => {
-                let diff = n1 - n2;
-                let diff_colored = if diff > 0.0 {
-                    format!("{:+.2}", diff).green()
-                } else if diff < 0.0 {
-                    format!("{:+.2}", diff).red()
-                } else {
-                    format!("{:+.2}", diff).yellow()
-                };
-
-                let winner = if diff > 0.0 {
-                    a["Title"].as_str().unwrap_or("Title A").cyan()
-                } else if diff < 0.0 {
-                    b["Title"].as_str().unwrap_or("Title B").cyan()
-                } else {
-                    "Tie".yellow()
-                };
-
-                println!(
-                    "{:<15} {}{} ({}) [{}]",
-                    field.green(),
-                    n1,
-                    unit,
-                    diff_colored,
-                    winner
-                );
-            }
-            _ => {
-                println!(
-                    "{:<15} {:<10} / {:<10} [{}]",
-                    field.green(),
-                    va,
-                    vb,
-                    "N/A".yellow()
-                );
-            }
-        }
-    }
-}
-
-use indicatif::{ProgressBar, ProgressStyle};
-use tokio::time::Duration;
-/// Entry point for reel CLI
 #[tokio::main]
 async fn main() {
     let args = Reel::parse();
-    let spinner = ProgressBar::new_spinner();
-    spinner.set_style(
-        ProgressStyle::with_template("{spinner} {msg}")
-            .unwrap()
-            .tick_strings(&["⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"]),
+    let client = Client::new();
+
+    let queries: &[String] = &args.queries;
+
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .apply_modifier(UTF8_SOLID_INNER_BORDERS)
+        .set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
+
+    let active_columns: Vec<Column> = columns()
+        .into_iter()
+        .filter(|c| (c.enabled)(&args))
+        .collect();
+
+    table.set_header(
+        active_columns
+            .iter()
+            .map(|c| Cell::new(c.header))
+            .collect::<Vec<_>>(),
     );
 
-    if args.query.is_empty() || args.query.iter().any(|q| q.trim().is_empty()) {
-        eprintln!("{}", "Please provide non-empty title(s).".red());
-        std::process::exit(1);
+    for query in queries {
+        let year = if queries.len() == 1 { args.year } else { None };
+
+        match fetch_title_data(&client, query, year).await {
+            Ok(data) => {
+                table.add_row(
+                    active_columns
+                        .iter()
+                        .map(|c| {
+                            let mut cell = Cell::new((c.value)(&data));
+
+                            if c.header == "IMDb Rating" {
+                                let rating: f32 = data.imdb_rating.parse().unwrap_or(0.0);
+                                let color = if rating >= 7.0 {
+                                    Color::Green
+                                } else if rating >= 4.0 {
+                                    Color::Yellow
+                                } else {
+                                    Color::Red
+                                };
+                                cell = cell.fg(color);
+                            }
+
+                            if c.header == "Title" {
+                                cell = cell.fg(Color::Cyan);
+                            }
+
+                            if c.header == "Metascore" {
+                                let rating: u32 = data.metascore.parse().unwrap_or(0);
+                                let color = if rating >= 70 {
+                                    Color::Green
+                                } else if rating >= 40 {
+                                    Color::Yellow
+                                } else {
+                                    Color::Red
+                                };
+                                cell = cell.fg(color);
+                            }
+
+                            cell
+                        })
+                        .collect::<Vec<_>>(),
+                );
+            }
+            Err(e) => eprintln!("Error fetching title: {}", e),
+        }
     }
 
-    let client = reqwest::Client::new();
-
-    if args.query.len() == 1 {
-        spinner.set_message("Contacting OMDb...");
-        spinner.enable_steady_tick(Duration::from_millis(120));
-        let movie1 = match fetch_movie_async(&client, &args.query[0], args.year).await {
-            Ok(m) => m,
-            Err(e) => {
-                eprintln!("{}", e.red());
-                std::process::exit(1);
-            }
-        };
-        spinner.finish_and_clear();
-
-        let props_to_show = build_props(&args);
-        print_info(&movie1, props_to_show);
-    } else {
-        spinner.set_message("Contacting OMDb...");
-        spinner.enable_steady_tick(Duration::from_millis(120));
-        // Parallel fetch both movies
-        let (movie1_res, movie2_res) = tokio::join!(
-            fetch_movie_async(&client, &args.query[0], args.year),
-            fetch_movie_async(&client, &args.query[1], args.year)
-        );
-
-        spinner.finish_and_clear();
-
-        let movie1 = match movie1_res {
-            Ok(m) => m,
-            Err(e) => {
-                eprintln!("{}", e.red());
-                std::process::exit(1);
-            }
-        };
-        let movie2 = match movie2_res {
-            Ok(m) => m,
-            Err(e) => {
-                eprintln!("{}", e.red());
-                std::process::exit(1);
-            }
-        };
-
-        let props_to_show = build_props(&args);
-        print_side_by_side(&movie1, &movie2, props_to_show);
-        print_difference(&movie1, &movie2);
+    if !table.is_empty() {
+        println!("{table}");
     }
 }
