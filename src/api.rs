@@ -153,6 +153,6 @@ pub fn get_columns() -> Vec<Column> {
             header: "Plot",
             enabled: |r| r.plot,
             value: |d| opt(&d.plot),
-        }
+        },
     ]
 }
