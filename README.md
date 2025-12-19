@@ -9,7 +9,7 @@ Inspired by mayankchd's [movie](https://github.com/mayankchd/movie) CLI.
 ## Features
 - Search for movies/series by title
 - Choose information you want to see using command line arguments
-- Specify release year for search.
+- Specify release year for search. (Single title only)
 
 ## Prerequisites
 - Rust
